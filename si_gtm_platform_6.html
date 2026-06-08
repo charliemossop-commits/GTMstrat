@@ -646,6 +646,11 @@ select.form-input { cursor: pointer; }
 .email-header { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
 .email-version { font-size: 14px; font-weight: 700; color: var(--text); }
 .email-angle { font-size: 11px; color: var(--muted-dark); margin-top: 1px; }
+.intel-toggle { padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;border:1.5px solid; }
+.intel-off { background:var(--bg);color:var(--muted-dark);border-color:var(--border); }
+.intel-off:hover { border-color:#93a8f4;color:var(--accent); }
+.intel-on { background:var(--accent-light);color:var(--accent);border-color:#93a8f4; }
+.intel-on::before { content:'✓ '; }
 .email-body { padding: 18px; }
 .subject-line { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); background: var(--accent-light); border: 1px solid #bfcfff; border-radius: 4px; padding: 8px 12px; margin-bottom: 14px; }
 .subject-label { font-size: 10px; color: var(--muted-dark); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; font-family: 'IBM Plex Mono', monospace; }
@@ -2659,6 +2664,22 @@ Charlie</div>
         </div>
       </div>
 
+      <!-- Intel selector panel (shown after research) -->
+      <div id="adv-intel-panel" style="display:none;background:white;border:1px solid #bfcfff;border-radius:10px;overflow:hidden">
+        <div style="padding:9px 14px;background:var(--accent-light);border-bottom:1px solid #bfcfff;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;font-family:monospace">Include in email</div>
+          <div style="font-size:10px;color:var(--muted-dark)">Select the intel to weave into the copy</div>
+        </div>
+        <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:7px">
+          <button id="itgl-ai" onclick="toggleIntel('ai')" class="intel-toggle intel-off" data-key="ai">AI Visibility</button>
+          <button id="itgl-google" onclick="toggleIntel('google')" class="intel-toggle intel-off" data-key="google">Google Issues</button>
+          <button id="itgl-review" onclick="toggleIntel('review')" class="intel-toggle intel-off" data-key="review">Review Signal</button>
+          <button id="itgl-competitor" onclick="toggleIntel('competitor')" class="intel-toggle intel-off" data-key="competitor">Competitor Intel</button>
+          <button id="itgl-news" onclick="toggleIntel('news')" class="intel-toggle intel-off" data-key="news">Latest News</button>
+        </div>
+        <div id="adv-intel-preview" style="display:none;padding:0 14px 10px;font-size:11px;color:var(--muted-dark);font-family:monospace;line-height:1.7;border-top:1px solid #e8f0ff;padding-top:8px;margin-top:2px"></div>
+      </div>
+
       <!-- Generate button -->
       <button id="adv-gen-btn" onclick="advGenerate()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background 0.15s">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.2 3.8H13l-3 2.2 1.1 3.8L7 8.8l-3.1 2L6 6.8 3 4.6h3.8z" fill="white"/></svg>
@@ -3891,6 +3912,73 @@ var advState = {
   generating: false,
   researching: false,
 };
+// Intel selection state
+var advIntel = { ai: false, google: false, review: false, competitor: false, news: false };
+
+function toggleIntel(key) {
+  advIntel[key] = !advIntel[key];
+  var btn = document.getElementById('itgl-' + key);
+  if (btn) {
+    btn.className = 'intel-toggle ' + (advIntel[key] ? 'intel-on' : 'intel-off');
+  }
+  updateIntelPreview();
+}
+
+function updateIntelPreview() {
+  var r = advState.research;
+  if (!r) return;
+  var preview = document.getElementById('adv-intel-preview');
+  if (!preview) return;
+  var lines = [];
+  if (advIntel.ai && r.ai_visibility) lines.push('AI Visibility: ' + r.ai_visibility);
+  if (advIntel.google && r.google_issues) lines.push('Google Issues: ' + r.google_issues);
+  if (advIntel.review && r.review_signal) lines.push('Review Signal: ' + r.review_signal);
+  if (advIntel.competitor && r.competitor) lines.push('Competitor: ' + r.competitor);
+  if (advIntel.news && r.latest_news) lines.push('Latest News: ' + r.latest_news);
+  if (lines.length) {
+    preview.innerHTML = '<div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">Will be woven into email copy:</div>' + lines.map(function(l){ return '▸ ' + l; }).join('<br>');
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function buildIntelDirective() {
+  var r = advState.research;
+  if (!r) return '';
+  var selected = [];
+  if (advIntel.ai && r.ai_visibility) selected.push({ label: 'AI Visibility', value: r.ai_visibility });
+  if (advIntel.google && r.google_issues) selected.push({ label: 'Google Issues', value: r.google_issues });
+  if (advIntel.review && r.review_signal) selected.push({ label: 'Review Signal', value: r.review_signal });
+  if (advIntel.competitor && r.competitor) selected.push({ label: 'Competitor Intel', value: r.competitor });
+  if (advIntel.news && r.latest_news) selected.push({ label: 'Latest News', value: r.latest_news });
+  if (!selected.length) return '';
+  return '\n\nSELECTED INTEL TO WEAVE INTO THE EMAIL (these are real findings — reference them specifically, do not speak about them generically):\n' +
+    selected.map(function(s){ return '- ' + s.label + ': ' + s.value; }).join('\n') +
+    '\n\nIMPORTANT: The email must directly reference the specific intel above. Make the recipient feel you have done your homework on their brand specifically.';
+}
+
+function showIntelPanel(r) {
+  var panel = document.getElementById('adv-intel-panel');
+  if (!panel) return;
+  // Enable/disable toggles based on data availability
+  var map = { ai: r.ai_visibility, google: r.google_issues, review: r.review_signal, competitor: r.competitor, news: r.latest_news };
+  Object.keys(map).forEach(function(k) {
+    var btn = document.getElementById('itgl-' + k);
+    if (!btn) return;
+    if (!map[k] || map[k] === 'N/A') {
+      btn.disabled = true;
+      btn.style.opacity = '0.35';
+      btn.style.cursor = 'not-allowed';
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+    }
+  });
+  panel.style.display = 'block';
+}
+
 var ADV_SAVE_KEY = 'si_adv_saved_v1';
 var ADV_CACHE_KEY = 'si_adv_cache_v1';
 var ADV_RULES_KEY = 'si_adv_rules_v1';
@@ -4031,6 +4119,14 @@ async function advResearchBrand() {
       document.getElementById('adv-obs').value = c.data.best_opener;
     return;
   }
+  // Reset intel selections for new research
+  advIntel = { ai: false, google: false, review: false, competitor: false, news: false };
+  ['ai','google','review','competitor','news'].forEach(function(k){
+    var b = document.getElementById('itgl-'+k);
+    if (b) { b.className = 'intel-toggle intel-off'; }
+  });
+  var intelPanel = document.getElementById('adv-intel-panel');
+  if (intelPanel) intelPanel.style.display = 'none';
   advState.researching = true;
   var btn = document.getElementById('adv-research-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span style="animation:spin .8s linear infinite;display:inline-block">⟳</span> Researching...'; }
@@ -4114,6 +4210,7 @@ function advShowResearch(r, fromCache) {
   if (fromCache && badge) badge.style.display = 'inline';
   else if (badge) badge.style.display = 'none';
   panel.style.display = 'block';
+  showIntelPanel(r);
 }
 
 // Generate
@@ -4148,46 +4245,22 @@ async function advGenerate() {
     inmail: 'Write a LinkedIn InMail for a non-connection. Max 1900 characters. Treat like a short cold email with a personal hook.'
   };
   var angles = {
-    ai: [
-      'ANGLE: AI Urgency — the world is shifting under their feet right now.',
-      'SUBJECT LINE: Must reference AI, 2027, or "one in three" — make it feel like a deadline is approaching.',
-      'OPENING HOOK: Open with the stat — by 2027 (6 months away) 1 in 3 local purchase decisions start with AI not Google. Make it land as a real, imminent threat — not a generic trend.',
-      'CORE ARGUMENT: AI search recommends one brand and skips four. Right now this brand has no guarantee they are the one being recommended. The window to fix this is closing fast.',
-      'CTA: One sharp question — ask if they have looked at how their locations appear in AI-generated recommendations, or offer to show them.',
-      'TONE: Urgent but not alarmist. Peer-to-peer. One sharp idea, not a sales pitch.'
-    ].join('\\n'),
-    revenue: [
-      'ANGLE: Revenue Leakage — money is leaving quietly right now, location by location.',
-      'SUBJECT LINE: Must reference money, revenue, leakage, or a specific operational failure (wrong hours, missed calls, invisible locations).',
-      'OPENING HOOK: Open with a specific, mundane operational failure — a location showing wrong hours, an unanswered review, a branch invisible to nearby customers. Make it feel embarrassingly fixable.',
-      'CORE ARGUMENT: With multiple locations, every 1% of foot traffic lost to a fixable data error compounds. This is not a marketing problem — it is a revenue ops problem hiding in plain sight.',
-      'CTA: Offer to run a free location audit or show them what their worst-performing location looks like right now.',
-      'TONE: Pragmatic, slightly forensic. CFO/CEO energy. Talk in rands and customers lost, not impressions and clicks.'
-    ].join('\\n'),
-    competitive: [
-      'ANGLE: Competitive — their direct competitor is winning the exact customers they are losing, right now.',
-      'SUBJECT LINE: Must hint at a competitor, a ranking, or being beaten — without naming the competitor directly.',
-      'OPENING HOOK: Open with the competitive reality — right now, in local AI search and Google Maps, a direct competitor is being recommended over this brand for nearby searches.',
-      'CORE ARGUMENT: Local presence is now a competitive moat. Whoever owns the AI recommendation layer for their category in their locations wins the customer before they even open a browser tab. This brand may be losing that race silently.',
-      'CTA: Ask if they have checked who is ranking above them in local AI results for their top 3 locations — offer to pull a snapshot.',
-      'TONE: Sharp and slightly provocative. Make them feel like they are missing something a competitor already knows.'
-    ].join('\\n'),
-    surprise: [
-      'ANGLE: Surprise — pick the single sharpest, most unexpected angle given everything you know about this brand, role, sector, and research data.',
-      'Do NOT default to AI urgency. Find something specific and counterintuitive.',
-      'If research data is available, anchor the hook in a specific data point — a review signal, a location count anomaly, a news item, a known competitor move.',
-      'The subject line must feel like it was written specifically for this person at this brand — not a template.',
-      'TONE: Human, a little unexpected, highly specific. Zero generic cold email energy.'
-    ].join('\\n')
+    ai: 'AI urgency — by 2027 one in three local purchase decisions start with AI, not Google. The algorithm recommends one brand and skips four. Make this feel urgent and specific.',
+    revenue: 'Revenue leakage — wrong hours, unanswered reviews, locations invisible to nearby customers. Money leaving quietly.',
+    competitive: 'Competitive — their direct competitor is being recommended above them in local AI search right now.',
+    surprise: 'Pick whichever angle is sharpest for this brand, role, and sector — make it feel unexpected and specific.'
   };
   var seqInstr = {
     1: 'Write a single cold email.',
     2: 'Write a 2-email sequence:\nEmail 1: Open the problem — direct CTA.\nEmail 2: Prove it with a case study. Softer CTA.\nSeparate with: ===EMAIL2===',
     3: 'Write a 3-email sequence:\nEmail 1: Open the problem — direct CTA.\nEmail 2: Prove it with a case study. Softer CTA.\nEmail 3: Graceful exit — short, respectful, ask for referral.\nSeparate with: ===EMAIL2=== and ===EMAIL3==='
   };
-  var rc = advState.research ? ('\n\nBRAND RESEARCH:\n- SA locations: ' + (advState.research.estimated_locations||'?') + '\n- AI visibility: ' + (advState.research.ai_visibility||'?') + '\n- Google issues: ' + (advState.research.google_issues||'?') + '\n- Review signal: ' + (advState.research.review_signal||'?') + '\n- vs Competitor: ' + (advState.research.competitor||'?') + '\n- Recent news: ' + (advState.research.latest_news||'?') + '\n- Best opener: ' + (advState.research.best_opener||'?')) : '';
+  // Base context — always included if research exists
+  var rc = advState.research ? ('\n\nBRAND CONTEXT:\n- Brand: ' + (advState.research.estimated_locations ? 'Has ~' + advState.research.estimated_locations + ' SA locations.' : '') + '\n- Best opener hint: ' + (advState.research.best_opener||'')) : '';
+  // Selective intel — only fields the user has toggled on
+  var intelDirective = buildIntelDirective();
   var system = 'You are Charlie Mossop, Country Manager for SingleInterface in South Africa. You write sharp, concise, human cold outreach to senior marketing and digital leaders at SA multi-location brands.\n\nSingleInterface is the AI transformation engine for multi-location brands. Not an SEO tool. Not a GBP manager. Makes every location as commercially successful as the best one.\n\nKEY FACTS:\n- By 2027 (6 months away) 1 in 3 local purchase decisions start with AI not Google\n- AI recommends one brand and skips four before the human chooses\n- Every location competes with 3-5 brands within 1km\n- Client: 60 branches went from 3.6 to 4.8 stars in 3 months — "business shot through the roof"\n\nRULES — follow every one:\n' + getActiveRulesText() + '\n\nOUTPUT FORMAT for each email:\nSUBJECT: [subject line]\n---\n[email body]\n\nSeparate multiple emails with ===EMAIL2=== or ===EMAIL3===';
-  var userPrompt = (isLi ? liInstructions[liType] : seqInstr[advState.seqCount]) + '\n\nBrand: ' + brand + '\nContact: ' + (name||'[Name]') + '\nRole: ' + role + '\nSector: ' + sector + '\nAngle: ' + angles[advState.angle] + (obs ? '\nSpecific observation: ' + obs : '\nNo specific observation — open with the most compelling problem for this role and sector.') + rc;
+  var userPrompt = (isLi ? liInstructions[liType] : seqInstr[advState.seqCount]) + '\n\nBrand: ' + brand + '\nContact: ' + (name||'[Name]') + '\nRole: ' + role + '\nSector: ' + sector + '\nAngle: ' + angles[advState.angle] + (obs ? '\nSpecific observation: ' + obs : '\nNo specific observation — open with the most compelling problem for this role and sector.') + rc + intelDirective;
 
   try {
     var resp = await fetchWithRetry('https://odd-wood-e2d7.charlie-mossop.workers.dev/', {
@@ -4908,6 +4981,7 @@ function advShowResearch(r, fromCache) {
   if (fromCache && badge) badge.style.display = 'inline';
   else if (badge) badge.style.display = 'none';
   panel.style.display = 'block';
+  showIntelPanel(r);
 }
 
 // Generate
@@ -4942,46 +5016,22 @@ async function advGenerate() {
     inmail: 'Write a LinkedIn InMail for a non-connection. Max 1900 characters. Treat like a short cold email with a personal hook.'
   };
   var angles = {
-    ai: [
-      'ANGLE: AI Urgency — the world is shifting under their feet right now.',
-      'SUBJECT LINE: Must reference AI, 2027, or "one in three" — make it feel like a deadline is approaching.',
-      'OPENING HOOK: Open with the stat — by 2027 (6 months away) 1 in 3 local purchase decisions start with AI not Google. Make it land as a real, imminent threat — not a generic trend.',
-      'CORE ARGUMENT: AI search recommends one brand and skips four. Right now this brand has no guarantee they are the one being recommended. The window to fix this is closing fast.',
-      'CTA: One sharp question — ask if they have looked at how their locations appear in AI-generated recommendations, or offer to show them.',
-      'TONE: Urgent but not alarmist. Peer-to-peer. One sharp idea, not a sales pitch.'
-    ].join('\\n'),
-    revenue: [
-      'ANGLE: Revenue Leakage — money is leaving quietly right now, location by location.',
-      'SUBJECT LINE: Must reference money, revenue, leakage, or a specific operational failure (wrong hours, missed calls, invisible locations).',
-      'OPENING HOOK: Open with a specific, mundane operational failure — a location showing wrong hours, an unanswered review, a branch invisible to nearby customers. Make it feel embarrassingly fixable.',
-      'CORE ARGUMENT: With multiple locations, every 1% of foot traffic lost to a fixable data error compounds. This is not a marketing problem — it is a revenue ops problem hiding in plain sight.',
-      'CTA: Offer to run a free location audit or show them what their worst-performing location looks like right now.',
-      'TONE: Pragmatic, slightly forensic. CFO/CEO energy. Talk in rands and customers lost, not impressions and clicks.'
-    ].join('\\n'),
-    competitive: [
-      'ANGLE: Competitive — their direct competitor is winning the exact customers they are losing, right now.',
-      'SUBJECT LINE: Must hint at a competitor, a ranking, or being beaten — without naming the competitor directly.',
-      'OPENING HOOK: Open with the competitive reality — right now, in local AI search and Google Maps, a direct competitor is being recommended over this brand for nearby searches.',
-      'CORE ARGUMENT: Local presence is now a competitive moat. Whoever owns the AI recommendation layer for their category in their locations wins the customer before they even open a browser tab. This brand may be losing that race silently.',
-      'CTA: Ask if they have checked who is ranking above them in local AI results for their top 3 locations — offer to pull a snapshot.',
-      'TONE: Sharp and slightly provocative. Make them feel like they are missing something a competitor already knows.'
-    ].join('\\n'),
-    surprise: [
-      'ANGLE: Surprise — pick the single sharpest, most unexpected angle given everything you know about this brand, role, sector, and research data.',
-      'Do NOT default to AI urgency. Find something specific and counterintuitive.',
-      'If research data is available, anchor the hook in a specific data point — a review signal, a location count anomaly, a news item, a known competitor move.',
-      'The subject line must feel like it was written specifically for this person at this brand — not a template.',
-      'TONE: Human, a little unexpected, highly specific. Zero generic cold email energy.'
-    ].join('\\n')
+    ai: 'AI urgency — by 2027 one in three local purchase decisions start with AI, not Google. The algorithm recommends one brand and skips four. Make this feel urgent and specific.',
+    revenue: 'Revenue leakage — wrong hours, unanswered reviews, locations invisible to nearby customers. Money leaving quietly.',
+    competitive: 'Competitive — their direct competitor is being recommended above them in local AI search right now.',
+    surprise: 'Pick whichever angle is sharpest for this brand, role, and sector — make it feel unexpected and specific.'
   };
   var seqInstr = {
     1: 'Write a single cold email.',
     2: 'Write a 2-email sequence:\nEmail 1: Open the problem — direct CTA.\nEmail 2: Prove it with a case study. Softer CTA.\nSeparate with: ===EMAIL2===',
     3: 'Write a 3-email sequence:\nEmail 1: Open the problem — direct CTA.\nEmail 2: Prove it with a case study. Softer CTA.\nEmail 3: Graceful exit — short, respectful, ask for referral.\nSeparate with: ===EMAIL2=== and ===EMAIL3==='
   };
-  var rc = advState.research ? ('\n\nBRAND RESEARCH:\n- SA locations: ' + (advState.research.estimated_locations||'?') + '\n- AI visibility: ' + (advState.research.ai_visibility||'?') + '\n- Google issues: ' + (advState.research.google_issues||'?') + '\n- Review signal: ' + (advState.research.review_signal||'?') + '\n- vs Competitor: ' + (advState.research.competitor||'?') + '\n- Recent news: ' + (advState.research.latest_news||'?') + '\n- Best opener: ' + (advState.research.best_opener||'?')) : '';
+  // Base context — always included if research exists
+  var rc = advState.research ? ('\n\nBRAND CONTEXT:\n- Brand: ' + (advState.research.estimated_locations ? 'Has ~' + advState.research.estimated_locations + ' SA locations.' : '') + '\n- Best opener hint: ' + (advState.research.best_opener||'')) : '';
+  // Selective intel — only fields the user has toggled on
+  var intelDirective = buildIntelDirective();
   var system = 'You are Charlie Mossop, Country Manager for SingleInterface in South Africa. You write sharp, concise, human cold outreach to senior marketing and digital leaders at SA multi-location brands.\n\nSingleInterface is the AI transformation engine for multi-location brands. Not an SEO tool. Not a GBP manager. Makes every location as commercially successful as the best one.\n\nKEY FACTS:\n- By 2027 (6 months away) 1 in 3 local purchase decisions start with AI not Google\n- AI recommends one brand and skips four before the human chooses\n- Every location competes with 3-5 brands within 1km\n- Client: 60 branches went from 3.6 to 4.8 stars in 3 months — "business shot through the roof"\n\nRULES — follow every one:\n' + getActiveRulesText() + '\n\nOUTPUT FORMAT for each email:\nSUBJECT: [subject line]\n---\n[email body]\n\nSeparate multiple emails with ===EMAIL2=== or ===EMAIL3===';
-  var userPrompt = (isLi ? liInstructions[liType] : seqInstr[advState.seqCount]) + '\n\nBrand: ' + brand + '\nContact: ' + (name||'[Name]') + '\nRole: ' + role + '\nSector: ' + sector + '\nAngle: ' + angles[advState.angle] + (obs ? '\nSpecific observation: ' + obs : '\nNo specific observation — open with the most compelling problem for this role and sector.') + rc;
+  var userPrompt = (isLi ? liInstructions[liType] : seqInstr[advState.seqCount]) + '\n\nBrand: ' + brand + '\nContact: ' + (name||'[Name]') + '\nRole: ' + role + '\nSector: ' + sector + '\nAngle: ' + angles[advState.angle] + (obs ? '\nSpecific observation: ' + obs : '\nNo specific observation — open with the most compelling problem for this role and sector.') + rc + intelDirective;
 
   try {
     var resp = await fetchWithRetry('https://odd-wood-e2d7.charlie-mossop.workers.dev/', {
