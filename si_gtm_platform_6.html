@@ -3769,6 +3769,7 @@ SUBJECT: [subject line]
 
 </script>
 
+<script>
 // ============ FETCH WITH RETRY (handles 429 rate limits) ============
 async function fetchWithRetry(url, options, retries) {
   retries = retries || 3;
@@ -3776,7 +3777,6 @@ async function fetchWithRetry(url, options, retries) {
   for (var attempt = 0; attempt <= retries; attempt++) {
     var resp = await fetch(url, options);
     if (resp.status === 429 && attempt < retries) {
-      // Show user feedback if possible
       var statusEls = document.querySelectorAll('[id$="-status"],[id$="-gen-status"]');
       statusEls.forEach(function(el) {
         if (el && el.offsetParent !== null) {
@@ -3785,12 +3785,13 @@ async function fetchWithRetry(url, options, retries) {
         }
       });
       await new Promise(function(r) { setTimeout(r, delay); });
-      delay = delay * 1.5; // back off further each retry
+      delay = delay * 1.5;
       continue;
     }
     return resp;
   }
 }
+</script>
 
 <script>
 
